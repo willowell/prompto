@@ -3,8 +3,10 @@
 //! Simple, functional, monadic command-line prompts.
 //! Heavily inspired by `readMaybe` from Haskell.
 
-type Validator<T> = dyn Fn(T) -> bool;
-
+/// # SafeParsable
+///
+/// Defines a trait that is safe to parse from a string and has a default value
+/// for `.unwrap_or_default()`
 pub trait SafeParsable: Sized + Copy + Default + std::str::FromStr {}
 
 impl<T> SafeParsable for T where T: Sized + Copy + Default + std::str::FromStr {}
@@ -14,44 +16,144 @@ pub mod result {
     //!
     //! This module includes explicit errors, as opposed to the maybe module,
     //! which simply converts errors into None.
+    use crate::*;
     use thiserror::Error;
 
+    /// # PromptError
+    ///
+    /// Describes the kinds of errors these functions can throw.
     #[derive(Error, Debug)]
     pub enum PromptError {
+        /// ### StdinError
+        ///
+        /// Throws in the event that `prompt_line()` fails.
         #[error("Failure reading line from stdin")]
-        Stdin(#[from] std::io::Error),
+        StdinError(#[from] std::io::Error),
+
+        /// ### ReadError
+        ///
+        /// Throws in the event that `read()` fails.
         #[error("Failure converting string to data type")]
-        Read,
+        ReadError,
     }
 
-    // promptLine :: String -> IO String
-    pub fn prompt_line(msg: &str) -> Result<String, PromptError> {
+    /// Get a newline-terminated string from stdin,
+    /// returning `StdinError` if `std::io::stdout.flush()` fails
+    /// or if `std::io::stdin().read_line()` fails.
+    ///
+    /// # Arguments
+    /// * `msg` – a message to display to the user.
+    ///
+    /// # Example
+    /// ```
+    /// use prompto::result::*;
+    /// let res = get_line("What's your name?");
+    /// match res {
+    ///     Ok(s)  => println!("Nice to meet you, {}!", s),
+    ///     Err(e) => eprintln!("I'm sorry! I got an error: {}", e)
+    /// }
+    /// ```
+    ///
+    /// The Haskell spec for this function is:
+    /// ```hs
+    /// promptLine :: String -> IO String
+    /// promptLine msg = do
+    ///     putStr msg
+    ///     hFlush stdout
+    ///     getLine
+    /// ```
+    pub fn get_line(msg: &str) -> Result<String, PromptError> {
         use std::io::Write;
 
         print!("{}", msg);
 
-        std::io::stdout().flush().map_err(|source| PromptError::Stdin(source))?;
+        std::io::stdout().flush().map_err(|source| PromptError::StdinError(source))?;
 
         let mut buffer: String = String::new();
         std::io::stdin().read_line(&mut buffer)
-            .map_err(|source| PromptError::Stdin(source))?;
+            .map_err(|source| PromptError::StdinError(source))?;
 
         Ok(buffer.trim_end().to_owned())
     }
 
+    /// Attempts to convert the contents of a string to a type
+    /// that implements `std::str::FromStr`.
+    /// Returns `ReadError` if conversion failed.
+    /// More or less a wrapper around `parse`.
+    ///
+    /// # Arguments
+    /// * `arg` – string to attempt to convert.
+    ///
+    /// # Example
+    /// ```
+    /// use prompto::result::*;
+    /// let res = read::<i32>("32").map(|x| x * 2).unwrap();
+    /// println!("Value of res: {}.", res);
+    /// ```
+    ///
+    /// The Haskell spec for this function is:
+    /// ```hs
+    /// readMaybe :: Read a => String -> Maybe a
+    /// ```
     pub fn read<T>(line: &str) -> Result<T, PromptError> where T: std::str::FromStr {
-        line.parse::<T>().map_err(|_| PromptError::Read)
+        line.parse::<T>().map_err(|_| PromptError::ReadError)
     }
 
-    pub fn input<T, F>(prompt: &str, validator: F) -> T
-        where
-            T: Copy + std::str::FromStr + std::default::Default,
-            F: Fn(T) -> bool
-    {
+    /// Gets a value of type `T` from the user, where `T` defines a default value
+    /// and implements `std::str::FromStr`.
+    /// This function returns `PromptError` (in other words, forwards the error from `get_line()` or `read()`)
+    /// if it is not able to parse the user's input into `T`.
+    ///
+    /// # Arguments
+    /// `msg` – a message to display to the user.
+    ///
+    /// # Example
+    /// ```
+    /// use prompto::result::*;
+    /// let res = input::<i32>("Please enter a number: ");
+    /// match res {
+    ///     Ok(x)  => println!("Got {}.", x),
+    ///     Err(e) => eprintln!("Got invalid input! {}", e)
+    /// }
+    /// ```
+    ///
+    /// I designed this function as a type-safe analogue of Python's `input` function.
+    /// However, this function returns an Option because it has no way to validate
+    /// the user's input.
+    ///
+    /// The Haskell spec for this function is:
+    /// ```hs
+    /// getLine >>= pure . (Text.Read.readMaybe :: String -> Maybe Int)
+    /// ```
+    pub fn input<T>(msg: &str) -> Result<T, PromptError> where T: SafeParsable {
+        get_line(msg).and_then(|s| read::<T>(&s))
+    }
+
+    /// Prompts the user for a value of type `T` and validates it against `validator`.
+    /// If input or validation fails, this function re-prompts the user.
+    ///
+    /// # Arguments
+    /// * `msg` – a message to display to the user.
+    /// * `validator` – a function which immutably borrows a single argument of type `T` and returns a `bool`.
+    ///
+    /// # Example
+    /// ```
+    /// use prompto::result::*;
+    /// let res: u32 = prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
+    /// ```
+    ///
+    /// Incidentally, the behaviour of this function is nearly the same as its counterpart in the option module.
+    /// Since this function does not provide any hooks into the errors the functions above can generate,
+    /// you are probably better off using the `Option` version, but I am providing this version anyway for completeness.
+    pub fn prompt<T, F>(msg: &str, validator: F) -> T where T: SafeParsable, F: Fn(T) -> bool {
         loop {
-            let res = prompt_line(prompt)
-                .and_then(|s| read::<T>(&s))
-                .unwrap_or_default();
+            let res: T = match input::<T>(msg) {
+                Ok(val) => val,
+                Err(_) => {
+                    println!("Invalid input. Please try again.");
+                    continue;
+                }
+            };
 
             if validator(res) {
                 break res;
@@ -63,11 +165,16 @@ pub mod result {
 }
 
 pub mod maybe {
+    //! # Maybe
+    //!
+    //! These functions wrap their results in `Option`.
+    //! In the event of an error, these functions return `None`.
+    //! If you need more fine-grained control over the errors, see the sibling result module.
     use crate::*;
 
     /// Get a newline-terminated string from stdin,
-    /// returning None if std::io::stdout.flush() fails
-    /// or if std::io::stdin().read_line() fails.
+    /// returning `None` if `std::io::stdout.flush()` fails
+    /// or if `std::io::stdin().read_line()` fails.
     ///
     /// # Arguments
     /// * `msg` – a message to display to the user.
@@ -83,11 +190,13 @@ pub mod maybe {
     /// ```
     ///
     /// The Haskell spec for this function is:
+    /// ```hs
     /// promptLine :: String -> IO String
     /// promptLine msg = do
     ///     putStr msg
     ///     hFlush stdout
     ///     getLine
+    /// ```
     pub fn get_line(msg: &str) -> Option<String> {
         use std::io::Write;
 
@@ -111,7 +220,7 @@ pub mod maybe {
 
     /// Attempts to convert the contents of a string to a type
     /// that implements `std::str::FromStr`.
-    /// Returns None if conversion failed.
+    /// Returns `None` if conversion failed.
     /// More or less a wrapper around `parse`.
     ///
     /// # Arguments
@@ -125,7 +234,9 @@ pub mod maybe {
     /// ```
     ///
     /// The Haskell spec for this function is:
+    /// ```hs
     /// readMaybe :: Read a => String -> Maybe a
+    /// ```
     pub fn read<T>(arg: &str) -> Option<T> where T: std::str::FromStr {
         match arg.parse::<T>() {
             Ok(res) => Some(res),
@@ -133,10 +244,9 @@ pub mod maybe {
         }
     }
 
-    /// Gets a value of type T from the user, where T defines a default value
-    /// and implements std::str::FromStr.
-    /// This function returns None if it is not able to parse the user's input
-    /// into T.
+    /// Gets a value of type `T` from the user, where `T` defines a default value
+    /// and implements `std::str::FromStr`.
+    /// This function returns `None` if it is not able to parse the user's input into `T`.
     ///
     /// # Arguments
     /// `msg` – a message to display to the user.
@@ -156,25 +266,25 @@ pub mod maybe {
     /// the user's input.
     ///
     /// The Haskell spec for this function is:
-    /// getLine >>= (readIO :: String -> IO Int)
+    /// ```hs
+    /// getLine >>= pure . (Text.Read.readMaybe :: String -> Maybe Int)
+    /// ```
     pub fn input<T>(msg: &str) -> Option<T> where T: SafeParsable {
         get_line(msg).and_then(|s| read::<T>(&s))
     }
 
-    /// Prompts the user for a value of type T and validates it against `validator`.
+    /// Prompts the user for a value of type `T` and validates it against `validator`.
     /// If input or validation fails, this function re-prompts the user.
     ///
     /// # Arguments
     /// * `msg` – a message to display to the user.
-    /// * `validator` – a function which immutably borrows a single argument of type T and returns a bool.
+    /// * `validator` – a function which immutably borrows a single argument of type `T` and returns a `bool`.
     ///
     /// # Example
     /// ```
     /// use prompto::maybe::*;
     /// let res: u32 = prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
     /// ```
-    ///
-    ///
     pub fn prompt<T, F>(msg: &str, validator: F) -> T where T: SafeParsable, F: Fn(T) -> bool {
         loop {
             let res: T = match input::<T>(msg) {
@@ -247,6 +357,8 @@ mod tests {
         let call_through_trait = RGB::from_str(r"#fa7268").unwrap() == RGB { r: 250, g: 114, b: 104};
         let call_through_maybe = maybe::read::<RGB>(r"#fa7268").unwrap() == RGB { r: 250, g: 114, b: 104};
         assert_eq!(call_through_trait, call_through_maybe);
+
+        assert!(maybe::read::<RGB>("gkhgkjyfa7©268").is_none());
     }
 
     #[test]
