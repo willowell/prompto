@@ -67,10 +67,13 @@ pub mod result {
 
         print!("{}", msg);
 
-        std::io::stdout().flush().map_err(|source| PromptError::StdinError(source))?;
+        std::io::stdout()
+            .flush()
+            .map_err(|source| PromptError::StdinError(source))?;
 
         let mut buffer: String = String::new();
-        std::io::stdin().read_line(&mut buffer)
+        std::io::stdin()
+            .read_line(&mut buffer)
             .map_err(|source| PromptError::StdinError(source))?;
 
         Ok(buffer.trim_end().to_owned())
@@ -95,7 +98,10 @@ pub mod result {
     /// ```hs
     /// readMaybe :: Read a => String -> Maybe a
     /// ```
-    pub fn read<T>(line: &str) -> Result<T, PromptError> where T: std::str::FromStr {
+    pub fn read<T>(line: &str) -> Result<T, PromptError>
+    where
+        T: std::str::FromStr,
+    {
         line.parse::<T>().map_err(|_| PromptError::ReadError)
     }
 
@@ -125,7 +131,10 @@ pub mod result {
     /// ```hs
     /// getLine >>= pure . (Text.Read.readMaybe :: String -> Maybe Int)
     /// ```
-    pub fn input<T>(msg: &str) -> Result<T, PromptError> where T: SafeParsable {
+    pub fn input<T>(msg: &str) -> Result<T, PromptError>
+    where
+        T: SafeParsable,
+    {
         get_line(msg).and_then(|s| read::<T>(&s))
     }
 
@@ -145,7 +154,11 @@ pub mod result {
     /// Incidentally, the behaviour of this function is nearly the same as its counterpart in the option module.
     /// Since this function does not provide any hooks into the errors the functions above can generate,
     /// you are probably better off using the `Option` version, but I am providing this version anyway for completeness.
-    pub fn prompt<T, F>(msg: &str, validator: F) -> T where T: SafeParsable, F: Fn(T) -> bool {
+    pub fn prompt<T, F>(msg: &str, validator: F) -> T
+    where
+        T: SafeParsable,
+        F: Fn(T) -> bool,
+    {
         loop {
             let res: T = match input::<T>(msg) {
                 Ok(val) => val,
@@ -205,14 +218,14 @@ pub mod maybe {
         // Force output to stdout before reading from stdin
         match std::io::stdout().flush() {
             Ok(()) => (),
-            Err(_) => return None
+            Err(_) => return None,
         }
 
         let mut buffer: String = String::new();
 
         match std::io::stdin().read_line(&mut buffer) {
             Ok(_) => (),
-            Err(_) => return None
+            Err(_) => return None,
         }
 
         Some(buffer.trim_end().to_owned())
@@ -237,10 +250,13 @@ pub mod maybe {
     /// ```hs
     /// readMaybe :: Read a => String -> Maybe a
     /// ```
-    pub fn read<T>(arg: &str) -> Option<T> where T: std::str::FromStr {
+    pub fn read<T>(arg: &str) -> Option<T>
+    where
+        T: std::str::FromStr,
+    {
         match arg.parse::<T>() {
             Ok(res) => Some(res),
-            Err(_) => None
+            Err(_) => None,
         }
     }
 
@@ -269,7 +285,10 @@ pub mod maybe {
     /// ```hs
     /// getLine >>= pure . (Text.Read.readMaybe :: String -> Maybe Int)
     /// ```
-    pub fn input<T>(msg: &str) -> Option<T> where T: SafeParsable {
+    pub fn input<T>(msg: &str) -> Option<T>
+    where
+        T: SafeParsable,
+    {
         get_line(msg).and_then(|s| read::<T>(&s))
     }
 
@@ -285,7 +304,11 @@ pub mod maybe {
     /// use prompto::maybe::*;
     /// let res: u32 = prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
     /// ```
-    pub fn prompt<T, F>(msg: &str, validator: F) -> T where T: SafeParsable, F: Fn(T) -> bool {
+    pub fn prompt<T, F>(msg: &str, validator: F) -> T
+    where
+        T: SafeParsable,
+        F: Fn(T) -> bool,
+    {
         loop {
             let res: T = match input::<T>(msg) {
                 Some(val) => val,
@@ -324,7 +347,6 @@ mod tests {
         // Parses a color hex code of the form '#rRgGbB..' into an
         // instance of 'RGB'
         fn from_str(hex_code: &str) -> Result<Self, Self::Err> {
-
             // u8::from_str_radix(src: &str, radix: u32) converts a string
             // slice in a given base to u8
             let r: u8 = u8::from_str_radix(&hex_code[1..3], 16)?;
@@ -354,8 +376,18 @@ mod tests {
     #[test]
     fn composite_type_checks() {
         // Read should behave the same way as calling parse or calling from_str directly on the type.
-        let call_through_trait = RGB::from_str(r"#fa7268").unwrap() == RGB { r: 250, g: 114, b: 104};
-        let call_through_maybe = maybe::read::<RGB>(r"#fa7268").unwrap() == RGB { r: 250, g: 114, b: 104};
+        let call_through_trait = RGB::from_str(r"#fa7268").unwrap()
+            == RGB {
+                r: 250,
+                g: 114,
+                b: 104,
+            };
+        let call_through_maybe = maybe::read::<RGB>(r"#fa7268").unwrap()
+            == RGB {
+                r: 250,
+                g: 114,
+                b: 104,
+            };
         assert_eq!(call_through_trait, call_through_maybe);
 
         assert!(maybe::read::<RGB>("gkhgkjyfa7©268").is_none());
@@ -363,9 +395,7 @@ mod tests {
 
     #[test]
     fn chaining_checks() {
-        let res = maybe::read::<i32>("32")
-            .map(|x| x * 2 )
-            .unwrap();
+        let res = maybe::read::<i32>("32").map(|x| x * 2).unwrap();
 
         assert_eq!(res, 64);
     }
