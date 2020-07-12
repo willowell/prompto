@@ -254,7 +254,7 @@ pub mod maybe {
     where
         T: std::str::FromStr,
     {
-        match arg.parse::<T>() {
+        match T::from_str(arg) {
             Ok(res) => Some(res),
             Err(_) => None,
         }
@@ -329,6 +329,10 @@ pub mod maybe {
 
 #[cfg(test)]
 mod tests {
+    /// Note: I am deliberately *not* testing the functions
+    /// in the result module because they are mostly identical
+    /// to the functions in the maybe module. The only difference
+    /// is that I would be checking for certain errors rather than None.
     use super::*;
 
     use std::str::FromStr;
@@ -349,6 +353,7 @@ mod tests {
         fn from_str(hex_code: &str) -> Result<Self, Self::Err> {
             // u8::from_str_radix(src: &str, radix: u32) converts a string
             // slice in a given base to u8
+
             let r: u8 = u8::from_str_radix(&hex_code[1..3], 16)?;
             let g: u8 = u8::from_str_radix(&hex_code[3..5], 16)?;
             let b: u8 = u8::from_str_radix(&hex_code[5..7], 16)?;
@@ -359,6 +364,9 @@ mod tests {
 
     #[test]
     fn sanity_checks() {
+        // parse and from_str should always be equal for the same arguments.
+        assert_eq!("32".parse::<i32>().unwrap(), i32::from_str("32").unwrap());
+
         // A string with a valid integer should always succeed.
         assert!(maybe::read::<i32>("32").is_some());
 
@@ -390,7 +398,10 @@ mod tests {
             };
         assert_eq!(call_through_trait, call_through_maybe);
 
-        assert!(maybe::read::<RGB>("gkhgkjyfa7©268").is_none());
+        // Caveat: read cannot catch all possible errors in this case;
+        // for instance, if you have a multi-byte character in this string,
+        // the compiler itself will error out!
+        assert!(maybe::read::<RGB>(r"gkhgkjyfa7jhkhjk268").is_none());
     }
 
     #[test]
