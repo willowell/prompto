@@ -208,9 +208,9 @@ pub mod maybe {
     use crate::*;
 
     impl<R, W> Prompto<R, W>
-        where
-            R: BufRead,
-            W: Write,
+    where
+        R: BufRead,
+        W: Write,
     {
         /// Get a newline-terminated string from stdin,
         /// returning `None` if `std::io::stdout.flush()` fails
@@ -249,10 +249,9 @@ pub mod maybe {
         ///     getLine
         /// ```
         pub fn get_line(&mut self, msg: &str) -> Option<String> {
-
             match write!(&mut self.writer, "{}", msg) {
                 Ok(()) => (),
-                Err(_) => return None
+                Err(_) => return None,
             }
 
             // Force output to stdout before reading from stdin
@@ -302,8 +301,8 @@ pub mod maybe {
         /// readMaybe :: Read a => String -> Maybe a
         /// ```
         pub fn read<T>(&mut self, arg: &str) -> Option<T>
-            where
-                T: std::str::FromStr,
+        where
+            T: std::str::FromStr,
         {
             match T::from_str(arg) {
                 Ok(res) => Some(res),
@@ -348,8 +347,8 @@ pub mod maybe {
         /// getLine >>= pure . (Text.Read.readMaybe :: String -> Maybe Int)
         /// ```
         pub fn input<T>(&mut self, msg: &str) -> Option<T>
-            where
-                T: SafeParsable,
+        where
+            T: SafeParsable,
         {
             self.get_line(msg).and_then(|s| self.read::<T>(&s))
         }
@@ -377,9 +376,9 @@ pub mod maybe {
         /// let res: u32 = prompto.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
         /// ```
         pub fn prompt<T, F>(&mut self, msg: &str, validator: F) -> T
-            where
-                T: SafeParsable,
-                F: Fn(T) -> bool,
+        where
+            T: SafeParsable,
+            F: Fn(T) -> bool,
         {
             loop {
                 let res: T = match self.input::<T>(msg) {
@@ -387,7 +386,7 @@ pub mod maybe {
                     None => {
                         match writeln!(&mut self.writer, "Invalid input! Please try again.") {
                             Ok(()) => (),
-                            Err(_) => ()
+                            Err(_) => (),
                         }
                         continue;
                     }
@@ -398,7 +397,7 @@ pub mod maybe {
                 } else {
                     match writeln!(&mut self.writer, "Invalid input! Please try again.") {
                         Ok(()) => (),
-                        Err(_) => ()
+                        Err(_) => (),
                     }
                 }
             }
@@ -453,7 +452,7 @@ mod tests {
 
         let mut prompto = Prompto {
             reader: &input[..],
-            writer: &mut output
+            writer: &mut output,
         };
 
         // parse and from_str should always be equal for the same arguments.
@@ -464,7 +463,9 @@ mod tests {
 
         // A string with any number of non-numeric characters should never succeed,
         // even if any part of the string *could* be valid.
-        assert!(prompto.read::<i32>("56 fdfs θ gx二éfs sdf34ごν53 df3dfsd2").is_none());
+        assert!(prompto
+            .read::<i32>("56 fdfs θ gx二éfs sdf34ごν53 df3dfsd2")
+            .is_none());
 
         // Implicit widening conversions are okay...
         assert!(prompto.read::<f32>("32").is_some());
@@ -483,7 +484,7 @@ mod tests {
 
         let mut prompto = Prompto {
             reader: &input[..],
-            writer: &mut output
+            writer: &mut output,
         };
 
         // Read should behave the same way as calling parse or calling from_str directly on the type.
@@ -518,29 +519,30 @@ mod tests {
 
         let mut prompto = Prompto {
             reader: &input[..],
-            writer: &mut output
+            writer: &mut output,
         };
 
-        let res = prompto.read::<i32>("32")
-            .map(|x| x * 2)
-            .unwrap_or_default();
+        let res = prompto.read::<i32>("32").map(|x| x * 2).unwrap_or_default();
 
         assert_eq!(res, 64);
 
-        let res = prompto.read::<f32>("3.14")
+        let res = prompto
+            .read::<f32>("3.14")
             .map(|x| x * 2f32)
             .unwrap_or_default();
 
         assert_eq!(res, 6.28);
 
-        let res = prompto.read::<RGB>(r"#fa7268")
+        let res = prompto
+            .read::<RGB>(r"#fa7268")
             .map(|rgb| rgb.r - 100)
             .unwrap_or_default();
 
         assert_eq!(res, 150);
 
         // Test a bad read
-        let res = prompto.read::<i32>("3fdgdf2")
+        let res = prompto
+            .read::<i32>("3fdgdf2")
             .map(|x| x * 2)
             .unwrap_or_default();
 
@@ -556,10 +558,12 @@ mod tests {
 
         let mut prompto = Prompto {
             reader: &input[..],
-            writer: &mut output
+            writer: &mut output,
         };
 
-        let res = prompto.input::<i32>("What's your favourite number? ").unwrap();
+        let res = prompto
+            .input::<i32>("What's your favourite number? ")
+            .unwrap();
 
         let output = String::from_utf8(output).unwrap();
 
@@ -575,7 +579,7 @@ mod tests {
 
         let mut prompto = Prompto {
             reader: &input[..],
-            writer: &mut output
+            writer: &mut output,
         };
 
         let res = prompto.input::<i32>("What's your favourite number? ");
@@ -596,11 +600,12 @@ mod tests {
 
         let mut prompto = Prompto {
             reader: &input[..],
-            writer: &mut output
+            writer: &mut output,
         };
 
-        let res: i32 = prompto.prompt("Please enter a number between 1 and 50: ",
-                                      |x| 1 <= x && x <= 50);
+        let res: i32 = prompto.prompt("Please enter a number between 1 and 50: ", |x| {
+            1 <= x && x <= 50
+        });
 
         let output = String::from_utf8(output).unwrap();
 
@@ -618,11 +623,12 @@ mod tests {
 
         let mut prompto = Prompto {
             reader: &input[..],
-            writer: &mut output
+            writer: &mut output,
         };
 
-        let res: i32 = prompto.prompt("Please enter a number between 1 and 50: ",
-                                      |x| 1 <= x && x <= 50);
+        let res: i32 = prompto.prompt("Please enter a number between 1 and 50: ", |x| {
+            1 <= x && x <= 50
+        });
 
         let output = String::from_utf8(output).unwrap();
 
