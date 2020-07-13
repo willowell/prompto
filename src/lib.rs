@@ -12,6 +12,22 @@ pub trait SafeParsable: Sized + Copy + Default + std::str::FromStr {}
 
 impl<T> SafeParsable for T where T: Sized + Copy + Default + std::str::FromStr {}
 
+/// # Prompto
+///
+/// Holds the input and output handles and redirects input and output to them.
+///
+/// # Example
+/// To use this with stdio:
+/// ```
+/// let stdio = std::io::stdin();
+/// let input = stdio.lock();
+/// let output = std::io::stdout();
+///
+/// let mut prompto = Prompto {
+///     reader: input,
+///     writer: output
+/// };
+/// ```
 struct Prompto<R, W> {
     reader: R,
     writer: W,
@@ -207,9 +223,13 @@ pub mod maybe {
         /// ```
         /// use prompto::maybe::*;
         ///
+        /// let stdio = std::io::stdin();
+        /// let input = stdio.lock();
+        /// let output = std::io::stdout();
+        ///
         /// let mut prompto = Prompto {
-        ///     reader: std::io::stdin().lock(),
-        ///     writer: std::io::stdout()
+        ///     reader: input,
+        ///     writer: output
         /// };
         ///
         /// let res = prompto.get_line("What's your name?");
@@ -263,9 +283,13 @@ pub mod maybe {
         /// ```
         /// use prompto::maybe::*;
         ///
+        /// let stdio = std::io::stdin();
+        /// let input = stdio.lock();
+        /// let output = std::io::stdout();
+        ///
         /// let mut prompto = Prompto {
-        ///     reader: std::io::stdin().lock(),
-        ///     writer: std::io::stdout()
+        ///     reader: input,
+        ///     writer: output
         /// };
         ///
         /// let res = prompto.read::<i32>("32").map(|x| x * 2).unwrap();
@@ -298,9 +322,13 @@ pub mod maybe {
         /// ```
         /// use prompto::maybe::*;
         ///
+        /// let stdio = std::io::stdin();
+        /// let input = stdio.lock();
+        /// let output = std::io::stdout();
+        ///
         /// let mut prompto = Prompto {
-        ///     reader: std::io::stdin().lock(),
-        ///     writer: std::io::stdout()
+        ///     reader: input,
+        ///     writer: output
         /// };
         ///
         /// let res = prompto.input::<i32>("Please enter a number: ");
@@ -337,9 +365,13 @@ pub mod maybe {
         /// ```
         /// use prompto::maybe::*;
         ///
+        /// let stdio = std::io::stdin();
+        /// let input = stdio.lock();
+        /// let output = std::io::stdout();
+        ///
         /// let mut prompto = Prompto {
-        ///     reader: std::io::stdin().lock(),
-        ///     writer: std::io::stdout()
+        ///     reader: input,
+        ///     writer: output
         /// };
         ///
         /// let res: u32 = prompto.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
@@ -353,7 +385,10 @@ pub mod maybe {
                 let res: T = match self.input::<T>(msg) {
                     Some(val) => val,
                     None => {
-                        println!("Invalid input. Please try again.");
+                        match writeln!(&mut self.writer, "Invalid input! Please try again.") {
+                            Ok(()) => (),
+                            Err(_) => ()
+                        }
                         continue;
                     }
                 };
@@ -361,7 +396,10 @@ pub mod maybe {
                 if validator(res) {
                     break res;
                 } else {
-                    println!("Invalid input! Please try again.");
+                    match writeln!(&mut self.writer, "Invalid input! Please try again.") {
+                        Ok(()) => (),
+                        Err(_) => ()
+                    }
                 }
             }
         }
@@ -403,6 +441,11 @@ mod tests {
         }
     }
 
+    /// This test encompasses my sanity checks:
+    /// this test ensures that my `read` function is behaving correctly;
+    /// that is, it is doing the same thing as `parse` and `from_str`.
+    /// This test covers only primitive types because I feel I can trust that
+    /// there won't be any weird gotchas with the conversions.
     #[test]
     fn sanity_checks() {
         let input = b"";
@@ -430,6 +473,9 @@ mod tests {
         assert!(prompto.read::<i32>("32.32").is_none());
     }
 
+    /// This test is the sanity check for composite types.
+    /// In this test, I am checking to see that `from_str` and my `read` function
+    /// do the same thing on a user-defined type that implements `std::str::FromStr`.
     #[test]
     fn composite_type_checks() {
         let input = b"";
@@ -461,6 +507,10 @@ mod tests {
         assert!(prompto.read::<RGB>(r"gkhgkjyfa7jhkhjk268").is_none());
     }
 
+    /// In this test, I am checking that I can `fmap` through the values that `read` gives,
+    /// regardless of whether the Option is a `Some` or a `None`.
+    /// In this test, I use `unwrap_or_default()` to prevent the test from erroring out
+    /// in case a function gets `None`.
     #[test]
     fn chaining_checks() {
         let input = b"";
@@ -471,8 +521,112 @@ mod tests {
             writer: &mut output
         };
 
-        let res = prompto.read::<i32>("32").map(|x| x * 2).unwrap();
+        let res = prompto.read::<i32>("32")
+            .map(|x| x * 2)
+            .unwrap_or_default();
 
         assert_eq!(res, 64);
+
+        let res = prompto.read::<f32>("3.14")
+            .map(|x| x * 2f32)
+            .unwrap_or_default();
+
+        assert_eq!(res, 6.28);
+
+        let res = prompto.read::<RGB>(r"#fa7268")
+            .map(|rgb| rgb.r - 100)
+            .unwrap_or_default();
+
+        assert_eq!(res, 150);
+
+        // Test a bad read
+        let res = prompto.read::<i32>("3fdgdf2")
+            .map(|x| x * 2)
+            .unwrap_or_default();
+
+        assert_eq!(res, 0);
+    }
+
+    /// In this test, I am checking that my `input` function behaves well with good input.
+    /// I used a trick I found on SO to mock stdin/stdout here.
+    #[test]
+    fn stdio_good_input_check() {
+        let input = b"32";
+        let mut output = Vec::new();
+
+        let mut prompto = Prompto {
+            reader: &input[..],
+            writer: &mut output
+        };
+
+        let res = prompto.input::<i32>("What's your favourite number? ").unwrap();
+
+        let output = String::from_utf8(output).unwrap();
+
+        assert_eq!("What's your favourite number? ", output);
+        assert_eq!(32, res);
+    }
+
+    /// Ditto, but for bad input.
+    #[test]
+    fn stdio_bad_input_check() {
+        let input = b"gdfg32";
+        let mut output = Vec::new();
+
+        let mut prompto = Prompto {
+            reader: &input[..],
+            writer: &mut output
+        };
+
+        let res = prompto.input::<i32>("What's your favourite number? ");
+
+        let output = String::from_utf8(output).unwrap();
+
+        assert_eq!("What's your favourite number? ", output);
+        assert!(res.is_none());
+    }
+
+    /// In this test, I am checking that my `prompt` function behaves well with good input.
+    /// Notice the checks at the bottom: the catch with this test and the next one is that
+    /// I have to give good input at some point or the functions will never end!
+    #[test]
+    fn stdio_good_prompt_check() {
+        let input = b"32";
+        let mut output = Vec::new();
+
+        let mut prompto = Prompto {
+            reader: &input[..],
+            writer: &mut output
+        };
+
+        let res: i32 = prompto.prompt("Please enter a number between 1 and 50: ",
+                                      |x| 1 <= x && x <= 50);
+
+        let output = String::from_utf8(output).unwrap();
+
+        assert_eq!("Please enter a number between 1 and 50: ", output);
+        assert_eq!(32, res);
+    }
+
+    /// In this test, I am checking that my `prompt` function behaves well with bad input.
+    /// Notice the input and the checks at the bottom; like I said before, I have to give
+    /// this function good input at some point or else it will never stop.
+    #[test]
+    fn stdio_bad_prompt_check() {
+        let input = b"3ghhj2\n25";
+        let mut output = Vec::new();
+
+        let mut prompto = Prompto {
+            reader: &input[..],
+            writer: &mut output
+        };
+
+        let res: i32 = prompto.prompt("Please enter a number between 1 and 50: ",
+                                      |x| 1 <= x && x <= 50);
+
+        let output = String::from_utf8(output).unwrap();
+
+        assert_eq!("Please enter a number between 1 and 50: Invalid input! Please try again.\nPlease enter a number between 1 and 50: ", output);
+        assert_eq!(25, res);
     }
 }
