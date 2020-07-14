@@ -19,6 +19,7 @@ impl<T> SafeParsable for T where T: Sized + Copy + Default + std::str::FromStr {
 /// # Example
 /// To use this with stdio:
 /// ```
+/// use prompto::Prompto;
 /// let stdio = std::io::stdin();
 /// let input = stdio.lock();
 /// let output = std::io::stdout();
@@ -28,11 +29,11 @@ impl<T> SafeParsable for T where T: Sized + Copy + Default + std::str::FromStr {
 ///     writer: output
 /// };
 /// ```
-struct Prompto<R, W> {
-    reader: R,
-    writer: W,
+pub struct Prompto<R, W> {
+    pub reader: R,
+    pub writer: W,
 }
-
+/*
 pub mod result {
     //! # Result
     //!
@@ -198,7 +199,7 @@ pub mod result {
         }
     }
 }
-
+*/
 pub mod maybe {
     //! # Maybe
     //!
@@ -222,6 +223,7 @@ pub mod maybe {
         /// # Example
         /// ```
         /// use prompto::maybe::*;
+        /// use prompto::Prompto;
         ///
         /// let stdio = std::io::stdin();
         /// let input = stdio.lock();
@@ -281,6 +283,7 @@ pub mod maybe {
         /// # Example
         /// ```
         /// use prompto::maybe::*;
+        /// use prompto::Prompto;
         ///
         /// let stdio = std::io::stdin();
         /// let input = stdio.lock();
@@ -320,6 +323,7 @@ pub mod maybe {
         /// # Example
         /// ```
         /// use prompto::maybe::*;
+        /// use prompto::Prompto;
         ///
         /// let stdio = std::io::stdin();
         /// let input = stdio.lock();
@@ -363,6 +367,7 @@ pub mod maybe {
         /// # Example
         /// ```
         /// use prompto::maybe::*;
+        /// use prompto::Prompto;
         ///
         /// let stdio = std::io::stdin();
         /// let input = stdio.lock();
