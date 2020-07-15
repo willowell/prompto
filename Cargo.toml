@@ -1,5 +1,5 @@
 [package]
-name = "vento"
+name = "promptor"
 description = "Simple, functional, monadic command-line prompts."
 categories = ["command-line-interface"]
 keywords = ["prompto", "prompt", "cli", "input", "validation"]
@@ -9,7 +9,7 @@ license = "MIT"
 edition = "2018"
 
 readme = "README.md"
-repository = "https://github.com/willowell/prompto"
+repository = "https://github.com/willowell/promptor"
 
 exclude = [".gitignore"]
 
