@@ -5,7 +5,7 @@
 /// to the functions in the maybe module. The only difference
 /// is that I would be checking for certain errors rather than None.
 use std::str::FromStr;
-use crate::Prompto;
+use crate::Vento;
 
 // From https://rust-lang-nursery.github.io/rust-cookbook/text/string_parsing.html
 #[derive(Debug, PartialEq)]
@@ -42,7 +42,7 @@ fn sanity_checks() {
     let input = b"";
     let mut output = Vec::new();
 
-    let mut prompto = Prompto {
+    let mut vento = Vento {
         reader: &input[..],
         writer: &mut output,
     };
@@ -51,19 +51,19 @@ fn sanity_checks() {
     assert_eq!("32".parse::<i32>().unwrap(), i32::from_str("32").unwrap());
 
     // A string with a valid integer should always succeed.
-    assert!(prompto.read::<i32>("32").is_some());
+    assert!(vento.read::<i32>("32").is_some());
 
     // A string with any number of non-numeric characters should never succeed,
     // even if any part of the string *could* be valid.
-    assert!(prompto
+    assert!(vento
         .read::<i32>("56 fdfs θ gx二éfs sdf34ごν53 df3dfsd2")
         .is_none());
 
     // Implicit widening conversions are okay...
-    assert!(prompto.read::<f32>("32").is_some());
+    assert!(vento.read::<f32>("32").is_some());
 
     // But truncating conversions are not!
-    assert!(prompto.read::<i32>("32.32").is_none());
+    assert!(vento.read::<i32>("32.32").is_none());
 }
 
 /// This test is the sanity check for composite types.
@@ -74,7 +74,7 @@ fn composite_type_checks() {
     let input = b"";
     let mut output = Vec::new();
 
-    let mut prompto = Prompto {
+    let mut vento = Vento {
         reader: &input[..],
         writer: &mut output,
     };
@@ -86,7 +86,7 @@ fn composite_type_checks() {
         g: 114,
         b: 104,
     };
-    let call_through_maybe = prompto.read::<RGB>(r"#fa7268").unwrap()
+    let call_through_maybe = vento.read::<RGB>(r"#fa7268").unwrap()
         == RGB {
         r: 250,
         g: 114,
@@ -97,7 +97,7 @@ fn composite_type_checks() {
     // Caveat: read cannot catch all possible errors in this case;
     // for instance, if you have a multi-byte character in this string,
     // the compiler itself will error out!
-    assert!(prompto.read::<RGB>(r"gkhgkjyfa7jhkhjk268").is_none());
+    assert!(vento.read::<RGB>(r"gkhgkjyfa7jhkhjk268").is_none());
 }
 
 /// In this test, I am checking that I can `fmap` through the values that `read` gives,
@@ -109,23 +109,23 @@ fn chaining_checks() {
     let input = b"";
     let mut output = Vec::new();
 
-    let mut prompto = Prompto {
+    let mut vento = Vento {
         reader: &input[..],
         writer: &mut output,
     };
 
-    let res = prompto.read::<i32>("32").map(|x| x * 2).unwrap_or_default();
+    let res = vento.read::<i32>("32").map(|x| x * 2).unwrap_or_default();
 
     assert_eq!(res, 64);
 
-    let res = prompto
+    let res = vento
         .read::<f32>("3.14")
         .map(|x| x * 2f32)
         .unwrap_or_default();
 
     assert_eq!(res, 6.28);
 
-    let res = prompto
+    let res = vento
         .read::<RGB>(r"#fa7268")
         .map(|rgb| rgb.r - 100)
         .unwrap_or_default();
@@ -133,7 +133,7 @@ fn chaining_checks() {
     assert_eq!(res, 150);
 
     // Test a bad read
-    let res = prompto
+    let res = vento
         .read::<i32>("3fdgdf2")
         .map(|x| x * 2)
         .unwrap_or_default();
@@ -148,12 +148,12 @@ fn stdio_good_input_check() {
     let input = b"32";
     let mut output = Vec::new();
 
-    let mut prompto = Prompto {
+    let mut vento = Vento {
         reader: &input[..],
         writer: &mut output,
     };
 
-    let res = prompto
+    let res = vento
         .input::<i32>("What's your favourite number? ")
         .unwrap();
 
@@ -169,12 +169,12 @@ fn stdio_bad_input_check() {
     let input = b"gdfg32";
     let mut output = Vec::new();
 
-    let mut prompto = Prompto {
+    let mut vento = Vento {
         reader: &input[..],
         writer: &mut output,
     };
 
-    let res = prompto.input::<i32>("What's your favourite number? ");
+    let res = vento.input::<i32>("What's your favourite number? ");
 
     let output = String::from_utf8(output).unwrap();
 
@@ -190,12 +190,12 @@ fn stdio_good_prompt_check() {
     let input = b"32";
     let mut output = Vec::new();
 
-    let mut prompto = Prompto {
+    let mut vento = Vento {
         reader: &input[..],
         writer: &mut output,
     };
 
-    let res: i32 = prompto.prompt("Please enter a number between 1 and 50: ", |x| {
+    let res: i32 = vento.prompt("Please enter a number between 1 and 50: ", |x| {
         1 <= x && x <= 50
     });
 
@@ -213,12 +213,12 @@ fn stdio_bad_prompt_check() {
     let input = b"3ghhj2\n25";
     let mut output = Vec::new();
 
-    let mut prompto = Prompto {
+    let mut vento = Vento {
         reader: &input[..],
         writer: &mut output,
     };
 
-    let res: i32 = prompto.prompt("Please enter a number between 1 and 50: ", |x| {
+    let res: i32 = vento.prompt("Please enter a number between 1 and 50: ", |x| {
         1 <= x && x <= 50
     });
 

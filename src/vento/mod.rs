@@ -1,6 +1,6 @@
-//! # Prompto
+//! # Vento
 //!
-//! You can use Prompto to handle user input by first defining an object of the Prompto type
+//! You can use Vento to handle user input by first defining an object of the Vento type
 //! to hold the handles to  your input/output streams,
 //! and then you can call the methods on that object to get input from that stream.
 
@@ -16,25 +16,25 @@ pub trait SafeParsable: Sized + Copy + Default + std::str::FromStr {}
 
 impl<T> SafeParsable for T where T: Sized + Copy + Default + std::str::FromStr {}
 
-/// # Prompto
+/// # Vento
 ///
 /// Holds the input and output handles and redirects input and output to them.
 ///
 /// # Example
 /// To use this with stdio:
 /// ```
-/// use prompto::Prompto;
+/// use vento::Vento;
 ///
 /// let stdio = std::io::stdin();
 /// let input = stdio.lock();
 /// let output = std::io::stdout();
 ///
-/// let mut prompto = Prompto {
+/// let mut vento = Vento {
 ///     reader: input,
 ///     writer: output
 /// };
 /// ```
-pub struct Prompto<R, W> {
+pub struct Vento<R, W> {
     pub reader: R,
     pub writer: W,
 }
@@ -57,7 +57,7 @@ pub enum PromptError {
     ReadError,
 }
 
-impl<R, W> Prompto<R, W>
+impl<R, W> Vento<R, W>
 where
     R: BufRead,
     W: Write,
@@ -71,18 +71,18 @@ where
     ///
     /// # Example
     /// ```
-    /// use prompto::Prompto;
+    /// use vento::Vento;
     ///
     /// let stdio = std::io::stdin();
     /// let input = stdio.lock();
     /// let output = std::io::stdout();
     ///
-    /// let mut prompto = Prompto {
+    /// let mut vento = Vento {
     ///     reader: input,
     ///     writer: output
     /// };
     ///
-    /// let res = prompto.get_line("What's your name?");
+    /// let res = vento.get_line("What's your name?");
     ///
     /// match res {
     ///     Some(s) => println!("Nice to meet you, {}!", s),
@@ -132,18 +132,18 @@ where
     ///
     /// # Example
     /// ```
-    /// use prompto::Prompto;
+    /// use vento::Vento;
     ///
     /// let stdio = std::io::stdin();
     /// let input = stdio.lock();
     /// let output = std::io::stdout();
     ///
-    /// let mut prompto = Prompto {
+    /// let mut vento = Vento {
     ///     reader: input,
     ///     writer: output
     /// };
     ///
-    /// let res = prompto.rget_line("What's your name?");
+    /// let res = vento.rget_line("What's your name?");
     ///
     /// match res {
     ///     Ok(s)  => println!("Nice to meet you, {}!", s),
@@ -177,18 +177,18 @@ where
     ///
     /// # Example
     /// ```
-    /// use prompto::Prompto;
+    /// use vento::Vento;
     ///
     /// let stdio = std::io::stdin();
     /// let input = stdio.lock();
     /// let output = std::io::stdout();
     ///
-    /// let mut prompto = Prompto {
+    /// let mut vento = Vento {
     ///     reader: input,
     ///     writer: output
     /// };
     ///
-    /// let res = prompto.read::<i32>("32").map(|x| x * 2).unwrap();
+    /// let res = vento.read::<i32>("32").map(|x| x * 2).unwrap();
     ///
     /// println!("Value of res: {}.", res);
     /// ```
@@ -217,18 +217,18 @@ where
     ///
     /// # Example
     /// ```
-    /// use prompto::Prompto;
+    /// use vento::Vento;
     ///
     /// let stdio = std::io::stdin();
     /// let input = stdio.lock();
     /// let output = std::io::stdout();
     ///
-    /// let mut prompto = Prompto {
+    /// let mut vento = Vento {
     ///     reader: input,
     ///     writer: output
     /// };
     ///
-    /// let res = prompto.rread::<i32>("32").map(|x| x * 2).unwrap();
+    /// let res = vento.rread::<i32>("32").map(|x| x * 2).unwrap();
     ///
     /// println!("Value of res: {}.", res);
     /// ```
@@ -248,18 +248,18 @@ where
     ///
     /// # Example
     /// ```
-    /// use prompto::Prompto;
+    /// use vento::Vento;
     ///
     /// let stdio = std::io::stdin();
     /// let input = stdio.lock();
     /// let output = std::io::stdout();
     ///
-    /// let mut prompto = Prompto {
+    /// let mut vento = Vento {
     ///     reader: input,
     ///     writer: output
     /// };
     ///
-    /// let res = prompto.input::<i32>("Please enter a number: ");
+    /// let res = vento.input::<i32>("Please enter a number: ");
     ///
     /// match res {
     ///     Some(x) => println!("Got {}.", x),
@@ -293,18 +293,18 @@ where
     ///
     /// # Example
     /// ```
-    /// use prompto::Prompto;
+    /// use vento::Vento;
     ///
     /// let stdio = std::io::stdin();
     /// let input = stdio.lock();
     /// let output = std::io::stdout();
     ///
-    /// let mut prompto = Prompto {
+    /// let mut vento = Vento {
     ///     reader: input,
     ///     writer: output
     /// };
     ///
-    /// let res = prompto.rinput::<i32>("Please enter a number: ");
+    /// let res = vento.rinput::<i32>("Please enter a number: ");
     ///
     /// match res {
     ///     Ok(x)  => println!("Got {}.", x),
@@ -327,18 +327,18 @@ where
     ///
     /// # Example
     /// ```
-    /// use prompto::Prompto;
+    /// use vento::Vento;
     ///
     /// let stdio = std::io::stdin();
     /// let input = stdio.lock();
     /// let output = std::io::stdout();
     ///
-    /// let mut prompto = Prompto {
+    /// let mut vento = Vento {
     ///     reader: input,
     ///     writer: output
     /// };
     ///
-    /// let res: u32 = prompto.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
+    /// let res: u32 = vento.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
     /// ```
     pub fn prompt<T, F>(&mut self, msg: &str, validator: F) -> T
     where
@@ -383,18 +383,18 @@ where
     ///
     /// # Example
     /// ```
-    /// use prompto::Prompto;
+    /// use vento::Vento;
     ///
     /// let stdio = std::io::stdin();
     /// let input = stdio.lock();
     /// let output = std::io::stdout();
     ///
-    /// let mut prompto = Prompto {
+    /// let mut vento = Vento {
     ///     reader: input,
     ///     writer: output
     /// };
     ///
-    /// let res: u32 = prompto.rprompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
+    /// let res: u32 = vento.rprompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
     /// ```
     ///
     /// # Panics

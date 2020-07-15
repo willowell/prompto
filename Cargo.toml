@@ -1,5 +1,5 @@
 [package]
-name = "prompto"
+name = "vento"
 description = "Simple, functional, monadic command-line prompts."
 categories = ["command-line-interface"]
 keywords = ["prompto", "prompt", "cli", "input", "validation"]

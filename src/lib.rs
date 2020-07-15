@@ -1,4 +1,4 @@
-//! # Prompto - Simple, functional, monadic command-line prompts.
+//! # Vento - Simple, functional, monadic command-line prompts.
 //! Heavily inspired by `readMaybe` from Haskell.
 //!
 //! This crate provides an object that can hold input/output handles,
@@ -8,39 +8,39 @@
 //!
 //! # Examples
 //! Say you'd like to get a number from the user via `stdin` that is in the closed interval [1, 100].
-//! To do this with Prompto, you first define the Prompto object and then call the `prompt()` method on it, like so:
+//! To do this with Vento, you first define the Vento object and then call the `prompt()` method on it, like so:
 //! ```
-//! use prompto::Prompto;
+//! use vento::Vento;
 //!
 //! let stdio = std::io::stdin();
 //! let input = stdio.lock();
 //! let output = std::io::stdout();
 //!
-//! let mut prompto = Prompto {
+//! let mut vento = Vento {
 //!     reader: input,
 //!     writer: output
 //! };
 //!
-//! let res: u32 = prompto.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
+//! let res: u32 = vento.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
 //! ```
 //! If you only need a string, you can use `get_line()` instead:
 //! ```
-//! use prompto::Prompto;
+//! use vento::Vento;
 //! let stdio = std::io::stdin();
 //! let input = stdio.lock();
 //! let output = std::io::stdout();
 //!
-//! let mut prompto = Prompto {
+//! let mut vento = Vento {
 //!     reader: input,
 //!     writer: output
 //! };
 //!
-//! let name = prompto.get_line("What is your name? ").unwrap();
+//! let name = vento.get_line("What is your name? ").unwrap();
 //! ```
 
-pub use self::prompto::Prompto;
+pub use self::vento::Vento;
 
-pub mod prompto;
+pub mod vento;
 
 #[cfg(test)]
 mod tests;
