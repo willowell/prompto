@@ -1,11 +1,11 @@
 #[cfg(test)]
 
-use crate::prompto::Prompto;
 /// Note: I am deliberately *not* testing the functions
 /// in the result module because they are mostly identical
 /// to the functions in the maybe module. The only difference
 /// is that I would be checking for certain errors rather than None.
 use std::str::FromStr;
+use crate::Prompto;
 
 // From https://rust-lang-nursery.github.io/rust-cookbook/text/string_parsing.html
 #[derive(Debug, PartialEq)]

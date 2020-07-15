@@ -67,4 +67,5 @@ pub use self::prompto::Prompto;
 
 pub mod prompto;
 
+#[cfg(test)]
 mod tests;
