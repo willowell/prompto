@@ -2,7 +2,7 @@
 name = "prompto"
 description = "Simple, functional, monadic command-line prompts."
 categories = ["command-line-interface"]
-keywords = ["prompto", "prompt", "cli", "user input", "input validation"]
+keywords = ["prompto", "prompt", "cli", "input", "validation"]
 version = "0.1.0"
 authors = ["William Howell <wlm.howell@gmail.com>"]
 license = "MIT"
