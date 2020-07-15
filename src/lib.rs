@@ -1,414 +1,71 @@
-//! # Prompto
-//!
-//! Simple, functional, monadic command-line prompts.
+//! # Prompto - Simple, functional, monadic command-line prompts.
 //! Heavily inspired by `readMaybe` from Haskell.
-use std::io::{self, BufRead, Write};
+//!
+//! This crate provides an object that can hold input/output handles,
+//! and several methods that can be called on the input stream to get input,
+//! including validating input.
+//! These methods depend on `std::str::FromStr` being defined on the type.
+//!
+//! # Motivation
+//! This is the culmination of a few months of researching error handling in several different languages.
+//! After learning about monadic error handling in Haskell and applying that to several other languages,
+//! I found that Rust, in combination with the `std::str::FromStr` trait, came closest to the Haskell
+//! implementation.
+//!
+//! I also found that other prompt libraries like this one did not quite fit my needs: they were either
+//! too complicated, too opaque, or did not account for validation internally.
+//! So, I made this library as a simple, straightforward prompt library, complete with a `prompt()` method
+//! that allows for a validator.
+//! Everything I've done in this library is close to the Rust standard library.
+//!
+//! Furthermore, thanks to dependency injection, you can even use this library for more than just stdin/stdout.
+//! You could, for instance, pipe input from a file.
+//!
+//! Meanwhile, I have tried to keep the error handling sensible: you can ignore internal errors with
+//! the methods that return an `Option`, or you can use the `Result` versions to decide how to handle errors.
+//!
+//! My library does not use any special traits; as you can see, `SafeParsable` merely uses `std::str::FromStr`,
+//! `Sized`, `Copy`, and `Default`. This way, the types play nicely with the validator and have a sensible
+//! result if you call `.unwrap_or_default()`.
+//!
+//! You can also use only what you need: if, for instance, you only need to get a string from the user,
+//! you can use just `get_line()`. You don't need to use `prompt()` at all.
+//!
+//! # Examples
+//! Say you'd like to get a number from the user via `stdin` that is in the closed interval [1, 100].
+//! To do this with Prompto, you first define the Prompto object and then call the `prompt()` method on it, like so:
+//! ```
+//! use prompto::Prompto;
+//!
+//! let stdio = std::io::stdin();
+//! let input = stdio.lock();
+//! let output = std::io::stdout();
+//!
+//! let mut prompto = Prompto {
+//!     reader: input,
+//!     writer: output
+//! };
+//!
+//! let res: u32 = prompto.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
+//! ```
+//! If you only need a string, you can use `get_line()` instead:
+//! ```
+//! use prompto::Prompto;
+//! let stdio = std::io::stdin();
+//! let input = stdio.lock();
+//! let output = std::io::stdout();
+//!
+//! let mut prompto = Prompto {
+//!     reader: input,
+//!     writer: output
+//! };
+//!
+//! let name = prompto.get_line("What is your name? ").unwrap();
+//! ```
 
-/// # SafeParsable
-///
-/// Defines a trait that is safe to parse from a string and has a default value
-/// for `.unwrap_or_default()`
-pub trait SafeParsable: Sized + Copy + Default + std::str::FromStr {}
+pub use self::prompto::Prompto;
 
-impl<T> SafeParsable for T where T: Sized + Copy + Default + std::str::FromStr {}
-
-/// # Prompto
-///
-/// Holds the input and output handles and redirects input and output to them.
-///
-/// # Example
-/// To use this with stdio:
-/// ```
-/// use prompto::Prompto;
-/// let stdio = std::io::stdin();
-/// let input = stdio.lock();
-/// let output = std::io::stdout();
-///
-/// let mut prompto = Prompto {
-///     reader: input,
-///     writer: output
-/// };
-/// ```
-pub struct Prompto<R, W> {
-    pub reader: R,
-    pub writer: W,
-}
-/*
-pub mod result {
-    //! # Result
-    //!
-    //! This module includes explicit errors, as opposed to the maybe module,
-    //! which simply converts errors into None.
-    use crate::*;
-    use thiserror::Error;
-
-    /// # PromptError
-    ///
-    /// Describes the kinds of errors these functions can throw.
-    #[derive(Error, Debug)]
-    pub enum PromptError {
-        /// ### StdinError
-        ///
-        /// Throws in the event that `prompt_line()` fails.
-        #[error("Failure reading line from stdin")]
-        StdinError(#[from] std::io::Error),
-
-        /// ### ReadError
-        ///
-        /// Throws in the event that `read()` fails.
-        #[error("Failure converting string to data type")]
-        ReadError,
-    }
-
-    /// Get a newline-terminated string from stdin,
-    /// returning `StdinError` if `std::io::stdout.flush()` fails
-    /// or if `std::io::stdin().read_line()` fails.
-    ///
-    /// # Arguments
-    /// * `msg` – a message to display to the user.
-    ///
-    /// # Example
-    /// ```
-    /// use prompto::result::*;
-    /// let res = get_line("What's your name?");
-    /// match res {
-    ///     Ok(s)  => println!("Nice to meet you, {}!", s),
-    ///     Err(e) => eprintln!("I'm sorry! I got an error: {}", e)
-    /// }
-    /// ```
-    ///
-    /// The Haskell spec for this function is:
-    /// ```hs
-    /// promptLine :: String -> IO String
-    /// promptLine msg = do
-    ///     putStr msg
-    ///     hFlush stdout
-    ///     getLine
-    /// ```
-    pub fn get_line(msg: &str) -> Result<String, PromptError> {
-        use std::io::Write;
-
-        print!("{}", msg);
-
-        std::io::stdout()
-            .flush()
-            .map_err(|source| PromptError::StdinError(source))?;
-
-        let mut buffer: String = String::new();
-        std::io::stdin()
-            .read_line(&mut buffer)
-            .map_err(|source| PromptError::StdinError(source))?;
-
-        Ok(buffer.trim_end().to_owned())
-    }
-
-    /// Attempts to convert the contents of a string to a type
-    /// that implements `std::str::FromStr`.
-    /// Returns `ReadError` if conversion failed.
-    /// More or less a wrapper around `parse`.
-    ///
-    /// # Arguments
-    /// * `arg` – string to attempt to convert.
-    ///
-    /// # Example
-    /// ```
-    /// use prompto::result::*;
-    /// let res = read::<i32>("32").map(|x| x * 2).unwrap();
-    /// println!("Value of res: {}.", res);
-    /// ```
-    ///
-    /// The Haskell spec for this function is:
-    /// ```hs
-    /// readMaybe :: Read a => String -> Maybe a
-    /// ```
-    pub fn read<T>(line: &str) -> Result<T, PromptError>
-    where
-        T: std::str::FromStr,
-    {
-        line.parse::<T>().map_err(|_| PromptError::ReadError)
-    }
-
-    /// Gets a value of type `T` from the user, where `T` defines a default value
-    /// and implements `std::str::FromStr`.
-    /// This function returns `PromptError` (in other words, forwards the error from `get_line()` or `read()`)
-    /// if it is not able to parse the user's input into `T`.
-    ///
-    /// # Arguments
-    /// `msg` – a message to display to the user.
-    ///
-    /// # Example
-    /// ```
-    /// use prompto::result::*;
-    /// let res = input::<i32>("Please enter a number: ");
-    /// match res {
-    ///     Ok(x)  => println!("Got {}.", x),
-    ///     Err(e) => eprintln!("Got invalid input! {}", e)
-    /// }
-    /// ```
-    ///
-    /// I designed this function as a type-safe analogue of Python's `input` function.
-    /// However, this function returns an Option because it has no way to validate
-    /// the user's input.
-    ///
-    /// The Haskell spec for this function is:
-    /// ```hs
-    /// getLine >>= pure . (Text.Read.readMaybe :: String -> Maybe Int)
-    /// ```
-    pub fn input<T>(msg: &str) -> Result<T, PromptError>
-    where
-        T: SafeParsable,
-    {
-        get_line(msg).and_then(|s| read::<T>(&s))
-    }
-
-    /// Prompts the user for a value of type `T` and validates it against `validator`.
-    /// If input or validation fails, this function re-prompts the user.
-    ///
-    /// # Arguments
-    /// * `msg` – a message to display to the user.
-    /// * `validator` – a function which immutably borrows a single argument of type `T` and returns a `bool`.
-    ///
-    /// # Example
-    /// ```
-    /// use prompto::result::*;
-    /// let res: u32 = prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
-    /// ```
-    ///
-    /// Incidentally, the behaviour of this function is nearly the same as its counterpart in the option module.
-    /// Since this function does not provide any hooks into the errors the functions above can generate,
-    /// you are probably better off using the `Option` version, but I am providing this version anyway for completeness.
-    pub fn prompt<T, F>(msg: &str, validator: F) -> T
-    where
-        T: SafeParsable,
-        F: Fn(T) -> bool,
-    {
-        loop {
-            let res: T = match input::<T>(msg) {
-                Ok(val) => val,
-                Err(_) => {
-                    println!("Invalid input. Please try again.");
-                    continue;
-                }
-            };
-
-            if validator(res) {
-                break res;
-            } else {
-                println!("Invalid input! Please try again.");
-            }
-        }
-    }
-}
-*/
-pub mod maybe {
-    //! # Maybe
-    //!
-    //! These functions wrap their results in `Option`.
-    //! In the event of an error, these functions return `None`.
-    //! If you need more fine-grained control over the errors, see the sibling result module.
-    use crate::*;
-
-    impl<R, W> Prompto<R, W>
-    where
-        R: BufRead,
-        W: Write,
-    {
-        /// Get a newline-terminated string from stdin,
-        /// returning `None` if `std::io::stdout.flush()` fails
-        /// or if `std::io::stdin().read_line()` fails.
-        ///
-        /// # Arguments
-        /// * `msg` – a message to display to the user.
-        ///
-        /// # Example
-        /// ```
-        /// use prompto::maybe::*;
-        /// use prompto::Prompto;
-        ///
-        /// let stdio = std::io::stdin();
-        /// let input = stdio.lock();
-        /// let output = std::io::stdout();
-        ///
-        /// let mut prompto = Prompto {
-        ///     reader: input,
-        ///     writer: output
-        /// };
-        ///
-        /// let res = prompto.get_line("What's your name?");
-        ///
-        /// match res {
-        ///     Some(s) => println!("Nice to meet you, {}!", s),
-        ///     None    => println!("I'm sorry!")
-        /// }
-        /// ```
-        ///
-        /// The Haskell spec for this function is:
-        /// ```hs
-        /// promptLine :: String -> IO String
-        /// promptLine msg = do
-        ///     putStr msg
-        ///     hFlush stdout
-        ///     getLine
-        /// ```
-        pub fn get_line(&mut self, msg: &str) -> Option<String> {
-            match write!(&mut self.writer, "{}", msg) {
-                Ok(()) => (),
-                Err(_) => return None,
-            }
-
-            // Force output to stdout before reading from stdin
-            match self.writer.flush() {
-                Ok(()) => (),
-                Err(_) => return None,
-            }
-
-            let mut buffer: String = String::new();
-
-            match self.reader.read_line(&mut buffer) {
-                Ok(_) => (),
-                Err(_) => return None,
-            }
-
-            Some(buffer.trim_end().to_owned())
-        }
-
-        /// Attempts to convert the contents of a string to a type
-        /// that implements `std::str::FromStr`.
-        /// Returns `None` if conversion failed.
-        /// More or less a wrapper around `parse`.
-        ///
-        /// # Arguments
-        /// * `arg` – string to attempt to convert.
-        ///
-        /// # Example
-        /// ```
-        /// use prompto::maybe::*;
-        /// use prompto::Prompto;
-        ///
-        /// let stdio = std::io::stdin();
-        /// let input = stdio.lock();
-        /// let output = std::io::stdout();
-        ///
-        /// let mut prompto = Prompto {
-        ///     reader: input,
-        ///     writer: output
-        /// };
-        ///
-        /// let res = prompto.read::<i32>("32").map(|x| x * 2).unwrap();
-        ///
-        /// println!("Value of res: {}.", res);
-        /// ```
-        ///
-        /// The Haskell spec for this function is:
-        /// ```hs
-        /// readMaybe :: Read a => String -> Maybe a
-        /// ```
-        pub fn read<T>(&mut self, arg: &str) -> Option<T>
-        where
-            T: std::str::FromStr,
-        {
-            match T::from_str(arg) {
-                Ok(res) => Some(res),
-                Err(_) => None,
-            }
-        }
-
-        /// Gets a value of type `T` from the user, where `T` defines a default value
-        /// and implements `std::str::FromStr`.
-        /// This function returns `None` if it is not able to parse the user's input into `T`.
-        ///
-        /// # Arguments
-        /// `msg` – a message to display to the user.
-        ///
-        /// # Example
-        /// ```
-        /// use prompto::maybe::*;
-        /// use prompto::Prompto;
-        ///
-        /// let stdio = std::io::stdin();
-        /// let input = stdio.lock();
-        /// let output = std::io::stdout();
-        ///
-        /// let mut prompto = Prompto {
-        ///     reader: input,
-        ///     writer: output
-        /// };
-        ///
-        /// let res = prompto.input::<i32>("Please enter a number: ");
-        ///
-        /// match res {
-        ///     Some(x) => println!("Got {}.", x),
-        ///     None => println!("Got invalid input!")
-        /// }
-        /// ```
-        ///
-        /// I designed this function as a type-safe analogue of Python's `input` function.
-        /// However, this function returns an Option because it has no way to validate
-        /// the user's input.
-        ///
-        /// The Haskell spec for this function is:
-        /// ```hs
-        /// getLine >>= pure . (Text.Read.readMaybe :: String -> Maybe Int)
-        /// ```
-        pub fn input<T>(&mut self, msg: &str) -> Option<T>
-        where
-            T: SafeParsable,
-        {
-            self.get_line(msg).and_then(|s| self.read::<T>(&s))
-        }
-
-        /// Prompts the user for a value of type `T` and validates it against `validator`.
-        /// If input or validation fails, this function re-prompts the user.
-        ///
-        /// # Arguments
-        /// * `msg` – a message to display to the user.
-        /// * `validator` – a function which immutably borrows a single argument of type `T` and returns a `bool`.
-        ///
-        /// # Example
-        /// ```
-        /// use prompto::maybe::*;
-        /// use prompto::Prompto;
-        ///
-        /// let stdio = std::io::stdin();
-        /// let input = stdio.lock();
-        /// let output = std::io::stdout();
-        ///
-        /// let mut prompto = Prompto {
-        ///     reader: input,
-        ///     writer: output
-        /// };
-        ///
-        /// let res: u32 = prompto.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
-        /// ```
-        pub fn prompt<T, F>(&mut self, msg: &str, validator: F) -> T
-        where
-            T: SafeParsable,
-            F: Fn(T) -> bool,
-        {
-            loop {
-                let res: T = match self.input::<T>(msg) {
-                    Some(val) => val,
-                    None => {
-                        match writeln!(&mut self.writer, "Invalid input! Please try again.") {
-                            Ok(()) => (),
-                            Err(_) => (),
-                        }
-                        continue;
-                    }
-                };
-
-                if validator(res) {
-                    break res;
-                } else {
-                    match writeln!(&mut self.writer, "Invalid input! Please try again.") {
-                        Ok(()) => (),
-                        Err(_) => (),
-                    }
-                }
-            }
-        }
-    }
-}
+pub mod prompto;
 
 #[cfg(test)]
 mod tests {
@@ -416,9 +73,9 @@ mod tests {
     /// in the result module because they are mostly identical
     /// to the functions in the maybe module. The only difference
     /// is that I would be checking for certain errors rather than None.
-    use super::*;
 
     use std::str::FromStr;
+    use crate::prompto::Prompto;
 
     // From https://rust-lang-nursery.github.io/rust-cookbook/text/string_parsing.html
     #[derive(Debug, PartialEq)]
@@ -495,16 +152,16 @@ mod tests {
         // Read should behave the same way as calling parse or calling from_str directly on the type.
         let call_through_trait = RGB::from_str(r"#fa7268").unwrap()
             == RGB {
-                r: 250,
-                g: 114,
-                b: 104,
-            };
+            r: 250,
+            g: 114,
+            b: 104,
+        };
         let call_through_maybe = prompto.read::<RGB>(r"#fa7268").unwrap()
             == RGB {
-                r: 250,
-                g: 114,
-                b: 104,
-            };
+            r: 250,
+            g: 114,
+            b: 104,
+        };
         assert_eq!(call_through_trait, call_through_maybe);
 
         // Caveat: read cannot catch all possible errors in this case;
