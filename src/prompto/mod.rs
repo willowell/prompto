@@ -4,7 +4,7 @@
 //! to hold the handles to  your input/output streams,
 //! and then you can call the methods on that object to get input from that stream.
 
-use std::io::{self, BufRead, Write};
+use std::io::{BufRead, Write};
 
 use thiserror::Error;
 
@@ -58,9 +58,9 @@ pub enum PromptError {
 }
 
 impl<R, W> Prompto<R, W>
-    where
-        R: BufRead,
-        W: Write,
+where
+    R: BufRead,
+    W: Write,
 {
     /// Get a newline-terminated string from stdin,
     /// returning `None` if `std::io::stdout.flush()` fails
@@ -151,16 +151,17 @@ impl<R, W> Prompto<R, W>
     /// }
     /// ```
     pub fn rget_line(&mut self, msg: &str) -> Result<String, PromptError> {
-        write!(&mut self.writer, "{}", msg)
-            .map_err(|err| PromptError::StdinError(err))?;
+        write!(&mut self.writer, "{}", msg).map_err(|err| PromptError::StdinError(err))?;
 
         // Force output to stdout before reading from stdin
-        self.writer.flush()
+        self.writer
+            .flush()
             .map_err(|err| PromptError::StdinError(err))?;
 
         let mut buffer: String = String::new();
 
-        self.reader.read_line(&mut buffer)
+        self.reader
+            .read_line(&mut buffer)
             .map_err(|err| PromptError::StdinError(err))?;
 
         Ok(buffer.trim_end().to_owned())
@@ -197,8 +198,8 @@ impl<R, W> Prompto<R, W>
     /// readMaybe :: Read a => String -> Maybe a
     /// ```
     pub fn read<T>(&mut self, arg: &str) -> Option<T>
-        where
-            T: std::str::FromStr,
+    where
+        T: std::str::FromStr,
     {
         match T::from_str(arg) {
             Ok(res) => Some(res),
@@ -231,7 +232,10 @@ impl<R, W> Prompto<R, W>
     ///
     /// println!("Value of res: {}.", res);
     /// ```
-    pub fn rread<T>(&mut self, arg: &str) -> Result<T, PromptError> where T: std::str::FromStr {
+    pub fn rread<T>(&mut self, arg: &str) -> Result<T, PromptError>
+    where
+        T: std::str::FromStr,
+    {
         Ok(T::from_str(arg).map_err(|_| PromptError::ReadError)?)
     }
 
@@ -272,8 +276,8 @@ impl<R, W> Prompto<R, W>
     /// getLine >>= pure . (Text.Read.readMaybe :: String -> Maybe Int)
     /// ```
     pub fn input<T>(&mut self, msg: &str) -> Option<T>
-        where
-            T: SafeParsable,
+    where
+        T: SafeParsable,
     {
         self.get_line(msg).and_then(|s| self.read::<T>(&s))
     }
@@ -307,7 +311,10 @@ impl<R, W> Prompto<R, W>
     ///     Err(_) => println!("Got invalid input!")
     /// }
     /// ```
-    pub fn rinput<T>(&mut self, msg: &str) -> Result<T, PromptError> where T: SafeParsable {
+    pub fn rinput<T>(&mut self, msg: &str) -> Result<T, PromptError>
+    where
+        T: SafeParsable,
+    {
         self.rget_line(msg).and_then(|s| self.rread(&s))
     }
 
@@ -334,9 +341,9 @@ impl<R, W> Prompto<R, W>
     /// let res: u32 = prompto.prompt("Please enter a number between 1 and 100: ", |x| 1 <= x && x <= 100);
     /// ```
     pub fn prompt<T, F>(&mut self, msg: &str, validator: F) -> T
-        where
-            T: SafeParsable,
-            F: Fn(T) -> bool,
+    where
+        T: SafeParsable,
+        F: Fn(T) -> bool,
     {
         loop {
             let res: T = match self.input::<T>(msg) {
@@ -397,9 +404,9 @@ impl<R, W> Prompto<R, W>
     ///
     /// I
     pub fn rprompt<T, F>(&mut self, msg: &str, validator: F) -> T
-        where
-            T: SafeParsable,
-            F: Fn(T) -> bool,
+    where
+        T: SafeParsable,
+        F: Fn(T) -> bool,
     {
         loop {
             let res: T = match self.rinput::<T>(msg) {
@@ -407,7 +414,9 @@ impl<R, W> Prompto<R, W>
                 Err(_) => {
                     match writeln!(&mut self.writer, "Invalid input! Please try again.") {
                         Ok(()) => (),
-                        Err(_) => panic!("writeln!() failed, even though write!() succeeded earlier"),
+                        Err(_) => {
+                            panic!("writeln!() failed, even though write!() succeeded earlier")
+                        }
                     }
                     continue;
                 }

@@ -69,13 +69,12 @@ pub mod prompto;
 
 #[cfg(test)]
 mod tests {
+    use crate::prompto::Prompto;
     /// Note: I am deliberately *not* testing the functions
     /// in the result module because they are mostly identical
     /// to the functions in the maybe module. The only difference
     /// is that I would be checking for certain errors rather than None.
-
     use std::str::FromStr;
-    use crate::prompto::Prompto;
 
     // From https://rust-lang-nursery.github.io/rust-cookbook/text/string_parsing.html
     #[derive(Debug, PartialEq)]
@@ -152,16 +151,16 @@ mod tests {
         // Read should behave the same way as calling parse or calling from_str directly on the type.
         let call_through_trait = RGB::from_str(r"#fa7268").unwrap()
             == RGB {
-            r: 250,
-            g: 114,
-            b: 104,
-        };
+                r: 250,
+                g: 114,
+                b: 104,
+            };
         let call_through_maybe = prompto.read::<RGB>(r"#fa7268").unwrap()
             == RGB {
-            r: 250,
-            g: 114,
-            b: 104,
-        };
+                r: 250,
+                g: 114,
+                b: 104,
+            };
         assert_eq!(call_through_trait, call_through_maybe);
 
         // Caveat: read cannot catch all possible errors in this case;
